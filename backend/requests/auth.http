@@ -1,0 +1,18 @@
+### Login
+POST http://localhost:8000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@assetflow.com",
+  "password": "password123"
+}
+
+###
+
+### Current User
+GET http://localhost:5000/api/auth/me
+
+###
+
+### Logout
+POST http://localhost:5000/api/auth/logout
