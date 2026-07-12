@@ -1,0 +1,117 @@
+### Login as Admin / Asset Manager to authenticate
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@assetflow.com",
+  "password": "password123"
+}
+
+###
+
+### 1. ASSET ALLOCATIONS
+### Get all allocations
+GET http://localhost:5000/api/allocations?page=1&limit=10
+
+### Allocate an Asset (Use actual assetId and userId)
+POST http://localhost:5000/api/allocations
+Content-Type: application/json
+
+{
+  "assetId": "{{assetId}}",
+  "userId": "{{userId}}",
+  "expectedReturnDate": "2026-12-31T23:59:59Z"
+}
+
+### Return an Asset (Replace :id with assetId)
+POST http://localhost:5000/api/allocations/{{assetId}}/return
+Content-Type: application/json
+
+{
+  "returnCondition": "GOOD",
+  "returnRemarks": "Returned in normal working condition"
+}
+
+###
+
+### 2. RESOURCE BOOKINGS
+### Get all bookings
+GET http://localhost:5000/api/bookings?page=1&limit=10
+
+### Book a Resource (e.g. Conference Room or Vehicle - Use bookable assetId)
+POST http://localhost:5000/api/bookings
+Content-Type: application/json
+
+{
+  "assetId": "{{bookableAssetId}}",
+  "startTime": "2026-08-15T10:00:00Z",
+  "endTime": "2026-08-15T12:00:00Z",
+  "purpose": "Monthly review meeting"
+}
+
+### Cancel a Booking (Replace :id with bookingId)
+POST http://localhost:5000/api/bookings/{{bookingId}}/cancel
+Content-Type: application/json
+
+{
+  "cancellationReason": "Meeting rescheduled"
+}
+
+###
+
+### 3. MAINTENANCE REQUESTS
+### Get all maintenance requests
+GET http://localhost:5000/api/maintenance?page=1&limit=10
+
+### Raise a Maintenance Request (Any user can report fault)
+POST http://localhost:5000/api/maintenance
+Content-Type: application/json
+
+{
+  "assetId": "{{assetId}}",
+  "title": "Screen flickering",
+  "description": "The laptop monitor started flickering frequently after update",
+  "priority": "MEDIUM"
+}
+
+### Assign Technician (Replace :id with requestId - Manager/Admin only)
+PATCH http://localhost:5000/api/maintenance/{{requestId}}/assign
+Content-Type: application/json
+
+{
+  "assignedToId": "{{technicianId}}"
+}
+
+### Resolve Maintenance Request (Replace :id with requestId)
+PATCH http://localhost:5000/api/maintenance/{{requestId}}/resolve
+Content-Type: application/json
+
+{
+  "resolutionNotes": "Replaced the display cable. Screen tested okay.",
+  "afterPhotoUrl": ""
+}
+
+###
+
+### 4. TRANSFER REQUESTS
+### Get all transfer requests
+GET http://localhost:5000/api/transfers?page=1&limit=10
+
+### Create a Transfer Request (Must be an allocated asset)
+POST http://localhost:5000/api/transfers
+Content-Type: application/json
+
+{
+  "assetId": "{{allocatedAssetId}}",
+  "toUserId": "{{targetUserId}}",
+  "reason": "Developer moving to QA team"
+}
+
+### Approve or Reject a Transfer (Replace :id with transferId - Manager/Admin only)
+POST http://localhost:5000/api/transfers/{{transferId}}/action
+Content-Type: application/json
+
+{
+  "action": "APPROVE",
+  "remarks": "Approved and updated department records"
+}
