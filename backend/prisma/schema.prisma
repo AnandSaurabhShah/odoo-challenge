@@ -142,6 +142,8 @@ model Department {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([status])
 }
 
 model User {
@@ -184,6 +186,10 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([departmentId])
+  @@index([role])
+  @@index([status])
 }
 
 model AssetCategory {
@@ -243,6 +249,12 @@ model Asset {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([ownerDepartmentId])
+  @@index([status])
+  @@index([condition])
+  @@index([locationCode])
 }
 
 model AssetAllocation {
@@ -330,6 +342,7 @@ model ResourceBooking {
   @@index([assetId])
   @@index([bookedById])
   @@index([status])
+  @@index([assetId, status])
 }
 
 model MaintenanceRequest {
@@ -457,6 +470,7 @@ model Notification {
 
   @@index([userId])
   @@index([isRead])
+  @@index([createdAt])
 }
 
 model ActivityLog {
