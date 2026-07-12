@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { useLoginMutation } from "../hooks/useAuth.js";
 import {
   Shield,
   Key,
@@ -7,75 +9,48 @@ import {
   Briefcase,
   ChevronRight,
   Layers,
+  CheckCircle,
 } from "lucide-react";
 
-export default function LoginView({ onLogin }) {
-  const [isSignUp, setIsSignUp] = useState(false);
+export default function LoginView() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [department, setDepartment] = useState("Engineering & DevOps");
-  const [role, setRole] = useState("System Admin");
-  const [error, setError] = useState("");
+  const [localError, setLocalError] = useState("");
+  const [searchParams] = useSearchParams();
+
+  // Show a success notice when redirected from signup
+  const justRegistered = searchParams.get("registered") === "1";
+
+  const loginMutation = useLoginMutation();
+
+  // Derive a user-friendly error message from the mutation error
+  const serverError = loginMutation.error?.message ?? null;
+  const error = localError || serverError;
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!email || !password || (isSignUp && !name)) {
-      setError("Please fill out all required fields.");
+    setLocalError("");
+
+    if (!email || !password) {
+      setLocalError("Please enter your email and password.");
       return;
     }
 
-    // Process mock login or register
-    const loggedUser = {
-      id: isSignUp ? "u_" + Date.now() : "u_preset",
-      name: isSignUp
-        ? name
-        : email.includes("admin")
-          ? "Administrator"
-          : email.includes("manager")
-            ? "Marcus Vance"
-            : email.includes("tech")
-              ? "James Carter"
-              : "Alice Smith",
-      email: email,
-      department: isSignUp
-        ? department
-        : email.includes("manager")
-          ? "Product & Design"
-          : "Engineering & DevOps",
-      role: isSignUp
-        ? role
-        : email.includes("admin")
-          ? "System Admin"
-          : email.includes("manager")
-            ? "Department Manager"
-            : email.includes("tech")
-              ? "Technician"
-              : "System Admin",
-      avatar: isSignUp
-        ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
-        : email.includes("manager")
-          ? "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
-          : email.includes("tech")
-            ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150"
-            : "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
-    };
-
-    onLogin(loggedUser);
+    loginMutation.mutate({ email, password });
   };
 
   const handleQuickFill = (preset) => {
-    setIsSignUp(false);
-    setError("");
+    setLocalError("");
+    loginMutation.reset();
     if (preset === "admin") {
-      setEmail("admin@assetflow.corp");
-      setPassword("admin123");
+      setEmail("admin@assetflow.com");
+      setPassword("password123");
     } else if (preset === "manager") {
-      setEmail("manager.marcus@assetflow.corp");
-      setPassword("manager123");
+      setEmail("manager@assetflow.com");
+      setPassword("password123");
     } else if (preset === "tech") {
-      setEmail("tech.james@assetflow.corp");
-      setPassword("tech123");
+      setEmail("rahul@assetflow.com");
+      setPassword("password123");
     }
   };
 
@@ -113,29 +88,19 @@ export default function LoginView({ onLogin }) {
           id="auth-card"
           className="bg-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 shadow-2xl"
         >
-          {/* Custom Switch Tab */}
-          <div className="flex bg-slate-900/60 p-1 rounded-xl border border-slate-800 mb-6">
-            <button
-              id="tab-signin"
-              onClick={() => {
-                setIsSignUp(false);
-                setError("");
-              }}
-              className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${!isSignUp ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:text-slate-200"}`}
-            >
-              Sign In
-            </button>
-            <button
-              id="tab-signup"
-              onClick={() => {
-                setIsSignUp(true);
-                setError("");
-              }}
-              className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${isSignUp ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:text-slate-200"}`}
-            >
-              Create Account
-            </button>
+          {/* Title */}
+          <div className="mb-6">
+            <h2 className="text-lg font-bold text-white">Sign in to your workspace</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Enter your corporate credentials to continue</p>
           </div>
+
+          {/* Post-signup success notice */}
+          {justRegistered && (
+            <div className="mb-4 p-3 bg-emerald-900/30 border border-emerald-500/30 rounded-lg flex items-center gap-2 text-emerald-200 text-xs">
+              <CheckCircle className="h-4 w-4 flex-shrink-0 text-emerald-400" />
+              Account created successfully! Sign in with your new credentials.
+            </div>
+          )}
 
           {error && (
             <div
@@ -147,26 +112,6 @@ export default function LoginView({ onLogin }) {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {isSignUp && (
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Full Name
-                </label>
-                <div className="relative">
-                  <UserIcon className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
-                  <input
-                    id="input-name"
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Sarah Connor"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              </div>
-            )}
-
             <div>
               <label className="block text-xs font-medium text-slate-300 mb-1.5">
                 Corporate Email
@@ -179,7 +124,7 @@ export default function LoginView({ onLogin }) {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@assetflow.corp"
+                  placeholder="name@company.com"
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
                 />
               </div>
@@ -203,95 +148,74 @@ export default function LoginView({ onLogin }) {
               </div>
             </div>
 
-            {isSignUp && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                    Department
-                  </label>
-                  <select
-                    id="select-department"
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-blue-500"
-                  >
-                    <option>Engineering & DevOps</option>
-                    <option>Product & Design</option>
-                    <option>Operations & Logistics</option>
-                    <option>Marketing & Sales</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                    System Role
-                  </label>
-                  <select
-                    id="select-role"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="System Admin">System Admin</option>
-                    <option value="Department Manager">Dept Manager</option>
-                    <option value="Technician">Technician</option>
-                    <option value="Employee">Employee</option>
-                  </select>
-                </div>
-              </div>
-            )}
-
             <button
               id="btn-auth-submit"
               type="submit"
-              className="w-full mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white py-2.5 rounded-xl font-semibold text-sm shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+              disabled={loginMutation.isPending}
+              className="w-full mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed text-white py-2.5 rounded-xl font-semibold text-sm shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
             >
-              <span>
-                {isSignUp
-                  ? "Create Enterprise Account"
-                  : "Sign In to Workspace"}
-              </span>
-              <ChevronRight className="h-4 w-4" />
+              {loginMutation.isPending ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Authenticating...</span>
+                </>
+              ) : (
+                <>
+                  <span>Sign In to Workspace</span>
+                  <ChevronRight className="h-4 w-4" />
+                </>
+              )}
             </button>
           </form>
 
           {/* Quick-Fill Presets helper */}
-          {!isSignUp && (
-            <div className="mt-6 pt-6 border-t border-slate-700/50">
-              <span className="block text-center text-xs text-slate-400 font-medium mb-3">
-                Reviewer Quick Sign-In Presets
-              </span>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  id="fill-admin"
-                  onClick={() => handleQuickFill("admin")}
-                  className="px-2 py-1.5 bg-slate-900/80 hover:bg-slate-900 border border-slate-700/40 rounded-lg text-slate-300 hover:text-white text-[11px] font-medium flex flex-col items-center justify-center transition-all duration-150"
-                >
-                  <Shield className="h-3.5 w-3.5 text-amber-400 mb-1" />
-                  Admin
-                </button>
-                <button
-                  id="fill-manager"
-                  onClick={() => handleQuickFill("manager")}
-                  className="px-2 py-1.5 bg-slate-900/80 hover:bg-slate-900 border border-slate-700/40 rounded-lg text-slate-300 hover:text-white text-[11px] font-medium flex flex-col items-center justify-center transition-all duration-150"
-                >
-                  <Briefcase className="h-3.5 w-3.5 text-blue-400 mb-1" />
-                  Manager
-                </button>
-                <button
-                  id="fill-tech"
-                  onClick={() => handleQuickFill("tech")}
-                  className="px-2 py-1.5 bg-slate-900/80 hover:bg-slate-900 border border-slate-700/40 rounded-lg text-slate-300 hover:text-white text-[11px] font-medium flex flex-col items-center justify-center transition-all duration-150"
-                >
-                  <UserIcon className="h-3.5 w-3.5 text-emerald-400 mb-1" />
-                  Technician
-                </button>
-              </div>
-              <span className="block text-center text-[10px] text-slate-500 mt-2">
-                Auto-populates mock role-based dashboard configurations.
-              </span>
+          <div className="mt-6 pt-6 border-t border-slate-700/50">
+            <span className="block text-center text-xs text-slate-400 font-medium mb-3">
+              Reviewer Quick Sign-In Presets
+            </span>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                id="fill-admin"
+                onClick={() => handleQuickFill("admin")}
+                className="px-2 py-1.5 bg-slate-900/80 hover:bg-slate-900 border border-slate-700/40 rounded-lg text-slate-300 hover:text-white text-[11px] font-medium flex flex-col items-center justify-center transition-all duration-150"
+              >
+                <Shield className="h-3.5 w-3.5 text-amber-400 mb-1" />
+                Admin
+              </button>
+              <button
+                id="fill-manager"
+                onClick={() => handleQuickFill("manager")}
+                className="px-2 py-1.5 bg-slate-900/80 hover:bg-slate-900 border border-slate-700/40 rounded-lg text-slate-300 hover:text-white text-[11px] font-medium flex flex-col items-center justify-center transition-all duration-150"
+              >
+                <Briefcase className="h-3.5 w-3.5 text-blue-400 mb-1" />
+                Manager
+              </button>
+              <button
+                id="fill-tech"
+                onClick={() => handleQuickFill("tech")}
+                className="px-2 py-1.5 bg-slate-900/80 hover:bg-slate-900 border border-slate-700/40 rounded-lg text-slate-300 hover:text-white text-[11px] font-medium flex flex-col items-center justify-center transition-all duration-150"
+              >
+                <UserIcon className="h-3.5 w-3.5 text-emerald-400 mb-1" />
+                Dept Head
+              </button>
             </div>
-          )}
+            <span className="block text-center text-[10px] text-slate-500 mt-2">
+              Fills credentials — still authenticates against the real backend.
+            </span>
+          </div>
         </div>
+
+        {/* Create Account Link */}
+        <p className="text-center text-xs text-slate-500 mt-4">
+          Don&apos;t have an account?{" "}
+          <Link
+            id="link-create-account"
+            to="/signup"
+            className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors font-medium"
+          >
+            Create one here
+          </Link>
+        </p>
       </div>
     </div>
   );

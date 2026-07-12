@@ -29,9 +29,15 @@ import {
 } from "../types.js";
 
 export const useAssetStore = create((set, get) => ({
-  currentUser: null,
+  // ── UI State ────────────────────────────────────────────────────
+  // NOTE: currentUser is now managed by TanStack Query (useCurrentUser hook)
+  // and is NOT stored here. Auth state lives in the 'me' query cache.
   activeScreen: "dashboard",
 
+  // ── Static / stub data (entities without a backend route yet) ───────────
+  // departments, users, and assets are now fetched from real API calls.
+  // The arrays below are only kept as fallback placeholders for the
+  // Zustand-backed stub mutations (transfers, bookings, maintenance, audits).
   departments: initialDepartments,
   users: initialUsers,
   categories: initialAssetCategories,
@@ -48,8 +54,8 @@ export const useAssetStore = create((set, get) => ({
 
   // Simple Actions
   setActiveScreen: (screen) => set({ activeScreen: screen }),
-  setCurrentUser: (user) => set({ currentUser: user }),
 
+  // logEvent remains here to power notification/log mutations for stub entities
   logEvent: (actionTitle, details, executorName, category) => {
     const { users } = get();
     const executorUser =
@@ -120,79 +126,7 @@ export const useAssetStore = create((set, get) => ({
     }));
   },
 
-  handleLogin: (rawUser) => {
-    const { users, departments, logEvent } = get();
-    // Look up or establish this user in our state
-    let targetUser = users.find((u) => u.email === rawUser.email);
-    if (!targetUser) {
-      const [first, ...lastParts] = (rawUser.name || "External User").split(
-        " ",
-      );
-      const last = lastParts.join(" ") || "Reviewer";
-      targetUser = {
-        id: rawUser.id,
-        firstName: first,
-        lastName: last,
-        email: rawUser.email,
-        passwordHash: "$2b$10$temporaryhash",
-        phone: "+1-555-0100",
-        employeeId: "EMP-" + Math.floor(100 + Math.random() * 900),
-        role:
-          rawUser.role === "System Admin"
-            ? UserRole.ADMIN
-            : rawUser.role === "Department Manager"
-              ? UserRole.DEPARTMENT_HEAD
-              : rawUser.role === "Technician"
-                ? UserRole.ASSET_MANAGER
-                : UserRole.EMPLOYEE,
-        departmentId: "d1",
-        status: RecordStatus.ACTIVE,
-        profileImage: rawUser.avatar,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      set((state) => ({ users: [targetUser, ...state.users] }));
-    }
-
-    const mappedUser = {
-      id: targetUser.id,
-      name: `${targetUser.firstName} ${targetUser.lastName}`,
-      email: targetUser.email,
-      department:
-        departments.find((d) => d.id === targetUser.departmentId)?.name ||
-        "Engineering & DevOps",
-      role:
-        targetUser.role === UserRole.ADMIN
-          ? "System Admin"
-          : targetUser.role === UserRole.DEPARTMENT_HEAD
-            ? "Department Manager"
-            : targetUser.role === UserRole.ASSET_MANAGER
-              ? "Technician"
-              : "Employee",
-      avatar: targetUser.profileImage,
-    };
-
-    set({ currentUser: mappedUser });
-    logEvent(
-      "User Session Started",
-      `${mappedUser.name} authenticated with corporate role "${mappedUser.role}"`,
-      mappedUser.name,
-      "System",
-    );
-  },
-
-  handleLogout: () => {
-    const { currentUser, logEvent } = get();
-    if (currentUser) {
-      logEvent(
-        "User Session Terminated",
-        `${currentUser.name} signed out securely.`,
-        currentUser.name,
-        "System",
-      );
-    }
-    set({ currentUser: null, activeScreen: "dashboard" });
-  },
+  // ── Stub entity handlers (no backend routes for these yet) ─────────────
 
   handleAddDepartment: (newDept) => {
     const { currentUser, logEvent } = get();

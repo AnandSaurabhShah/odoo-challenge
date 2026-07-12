@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAssetStore } from "../store/useAssetStore.js";
+import { departmentsApi, usersApi, assetsApi } from "../lib/api.js";
 
 // Query keys for TanStack Query cache invalidations
 export const QUERY_KEYS = {
@@ -21,61 +22,93 @@ export const QUERY_KEYS = {
 // 1. QUERY HOOKS (Fetching Server State)
 // ==========================================
 
+/**
+ * Real API — GET /api/departments
+ * Returns { data: Department[] }
+ */
 export function useDepartments() {
-  const departments = useAssetStore((state) => state.departments);
   return useQuery({
     queryKey: [QUERY_KEYS.DEPARTMENTS],
     queryFn: async () => {
-      // Simulation of a server network request
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      return departments;
+      const res = await departmentsApi.list();
+      return res.data ?? [];
     },
-    placeholderData: departments,
+    staleTime: 2 * 60 * 1000,
   });
 }
 
+/**
+ * Same as useDepartments but safe for use on unauthenticated pages (e.g. signup).
+ * Returns [] gracefully on 401 so the form still works without a department selection.
+ */
+export function useDepartmentsPublic() {
+  return useQuery({
+    queryKey: [QUERY_KEYS.DEPARTMENTS, "public"],
+    queryFn: async () => {
+      try {
+        const res = await departmentsApi.list();
+        return res.data ?? [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+}
+
+
+/**
+ * Real API — GET /api/users
+ */
 export function useUsers() {
-  const users = useAssetStore((state) => state.users);
   return useQuery({
     queryKey: [QUERY_KEYS.USERS],
     queryFn: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      return users;
+      const res = await usersApi.list();
+      return res.data ?? [];
     },
-    placeholderData: users,
+    staleTime: 2 * 60 * 1000,
   });
 }
 
+/**
+ * Static — no /api/categories route exists yet; use types.js data from the store.
+ */
 export function useCategories() {
   const categories = useAssetStore((state) => state.categories);
   return useQuery({
     queryKey: [QUERY_KEYS.CATEGORIES],
     queryFn: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       return categories;
     },
     placeholderData: categories,
   });
 }
 
+/**
+ * Real API — GET /api/assets
+ */
 export function useAssets() {
-  const assets = useAssetStore((state) => state.assets);
   return useQuery({
     queryKey: [QUERY_KEYS.ASSETS],
     queryFn: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      return assets;
+      const res = await assetsApi.list();
+      return res.data ?? [];
     },
-    placeholderData: assets,
+    staleTime: 2 * 60 * 1000,
   });
 }
+
+// ── Stub queries (no backend route yet — use Zustand store) ─────────────────
 
 export function useAllocations() {
   const allocations = useAssetStore((state) => state.allocations);
   return useQuery({
     queryKey: [QUERY_KEYS.ALLOCATIONS],
     queryFn: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       return allocations;
     },
     placeholderData: allocations,
@@ -87,7 +120,7 @@ export function useTransfers() {
   return useQuery({
     queryKey: [QUERY_KEYS.TRANSFERS],
     queryFn: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       return transfers;
     },
     placeholderData: transfers,
@@ -99,7 +132,7 @@ export function useBookings() {
   return useQuery({
     queryKey: [QUERY_KEYS.BOOKINGS],
     queryFn: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       return bookings;
     },
     placeholderData: bookings,
@@ -111,7 +144,7 @@ export function useMaintenance() {
   return useQuery({
     queryKey: [QUERY_KEYS.MAINTENANCE],
     queryFn: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       return maintenance;
     },
     placeholderData: maintenance,
@@ -123,7 +156,7 @@ export function useAudits() {
   return useQuery({
     queryKey: [QUERY_KEYS.AUDITS],
     queryFn: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       return audits;
     },
     placeholderData: audits,
@@ -135,7 +168,7 @@ export function useAuditItems() {
   return useQuery({
     queryKey: [QUERY_KEYS.AUDIT_ITEMS],
     queryFn: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       return auditItems;
     },
     placeholderData: auditItems,
@@ -147,7 +180,7 @@ export function useNotifications() {
   return useQuery({
     queryKey: [QUERY_KEYS.NOTIFICATIONS],
     queryFn: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       return notifications;
     },
     placeholderData: notifications,
@@ -159,7 +192,7 @@ export function useLogs() {
   return useQuery({
     queryKey: [QUERY_KEYS.LOGS],
     queryFn: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       return logs;
     },
     placeholderData: logs,
@@ -170,18 +203,18 @@ export function useLogs() {
 // 2. MUTATION HOOKS (Modifying Server State)
 // ==========================================
 
+// ── Department mutations ──────────────────────────────────────────────────────
+
 export function useAddDepartmentMutation() {
   const queryClient = useQueryClient();
-  const handleAddDepartment = useAssetStore(
-    (state) => state.handleAddDepartment,
-  );
 
   return useMutation({
-    mutationFn: async (newDept) => {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      handleAddDepartment(newDept);
-      return newDept;
-    },
+    mutationFn: (newDept) =>
+      departmentsApi.create({
+        name: newDept.name,
+        code: newDept.code.toUpperCase(),
+        description: newDept.description || "Custom corporate division.",
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.DEPARTMENTS] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LOGS] });
@@ -190,15 +223,26 @@ export function useAddDepartmentMutation() {
   });
 }
 
+// ── Employee (User) mutations ─────────────────────────────────────────────────
+
 export function useAddEmployeeMutation() {
   const queryClient = useQueryClient();
-  const handleAddEmployee = useAssetStore((state) => state.handleAddEmployee);
 
   return useMutation({
-    mutationFn: async (newEmp) => {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      handleAddEmployee(newEmp);
-      return newEmp;
+    mutationFn: (newEmp) => {
+      const [firstName, ...lastParts] = (newEmp.name || "New User").split(" ");
+      const lastName = lastParts.join(" ") || "Staff";
+      return usersApi.create({
+        firstName,
+        lastName,
+        email: newEmp.email,
+        password: newEmp.password || "changeme123",
+        phone: newEmp.phone || "+1-555-0100",
+        employeeId:
+          newEmp.employeeId || "EMP-" + Math.floor(100 + Math.random() * 900),
+        role: "EMPLOYEE",
+        departmentId: newEmp.departmentId || null,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.USERS] });
@@ -210,16 +254,9 @@ export function useAddEmployeeMutation() {
 
 export function useDeleteEmployeeMutation() {
   const queryClient = useQueryClient();
-  const handleDeleteEmployee = useAssetStore(
-    (state) => state.handleDeleteEmployee,
-  );
 
   return useMutation({
-    mutationFn: async (empId) => {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      handleDeleteEmployee(empId);
-      return empId;
-    },
+    mutationFn: (empId) => usersApi.delete(empId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.USERS] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LOGS] });
@@ -228,16 +265,29 @@ export function useDeleteEmployeeMutation() {
   });
 }
 
+// ── Asset mutations ───────────────────────────────────────────────────────────
+
 export function useAddAssetMutation() {
   const queryClient = useQueryClient();
-  const handleAddAsset = useAssetStore((state) => state.handleAddAsset);
 
   return useMutation({
-    mutationFn: async (newAsset) => {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      handleAddAsset(newAsset);
-      return newAsset;
-    },
+    mutationFn: (newAsset) =>
+      assetsApi.create({
+        name: newAsset.name,
+        serialNumber:
+          newAsset.serialNumber ||
+          "SN-" + Math.floor(100000 + Math.random() * 900000),
+        assetTag: "AF-" + Math.floor(1000 + Math.random() * 9000),
+        categoryId: newAsset.categoryId,
+        ownerDepartmentId: newAsset.ownerDepartmentId,
+        acquisitionDate: newAsset.purchaseDate
+          ? new Date(newAsset.purchaseDate).toISOString()
+          : new Date().toISOString(),
+        acquisitionCost: Number(newAsset.purchaseValue) || 0,
+        locationCode: newAsset.location || "HQ - Office",
+        isBookable: newAsset.isBookable ?? true,
+        imageUrl: newAsset.image || null,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ASSETS] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ALLOCATIONS] });
@@ -246,6 +296,8 @@ export function useAddAssetMutation() {
     },
   });
 }
+
+// ── Stub mutations (no backend route yet — delegate to Zustand store) ────────
 
 export function useRequestTransferMutation() {
   const queryClient = useQueryClient();
