@@ -1,10 +1,8 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useCurrentUser, useLogoutMutation } from "../hooks/useAuth.js";
 import {
-  RecordStatus,
   UserRole,
   AssetStatus,
-  AssetCondition,
   TransferStatus,
   BookingStatus,
   MaintenanceStatus,
@@ -12,11 +10,13 @@ import {
   AuditStatus,
   AuditItemStatus,
   NotificationType,
-  ActivityAction,
   EntityType,
 } from "../types.js";
 
 import { useAssetStore } from "../store/useAssetStore.js";
+import { hasAccess, getDefaultScreen, ROLE_LABELS } from "../lib/rbac.js";
+import AccessDenied from "../components/AccessDenied.jsx";
+
 import {
   useDepartments,
   useUsers,
@@ -64,21 +64,20 @@ export default function DashboardPage() {
   const { data: rawUser } = useCurrentUser();
   const logoutMutation = useLogoutMutation();
 
-  // Map the backend User shape → the UI user shape expected by all views
+  // The backend role enum — single source of truth for RBAC
+  const rawRole = rawUser?.role ?? "EMPLOYEE";
+
+  // UI-friendly user shape passed to all view components
   const currentUser = rawUser
     ? {
         id: rawUser.id,
         name: rawUser.fullName,
         email: rawUser.email,
         department: rawUser.department?.name ?? "N/A",
-        role:
-          rawUser.role === "ADMIN"
-            ? "System Admin"
-            : rawUser.role === "DEPARTMENT_HEAD"
-              ? "Department Manager"
-              : rawUser.role === "ASSET_MANAGER"
-                ? "Technician"
-                : "Employee",
+        // Spec-correct role labels from rbac.js
+        role: ROLE_LABELS[rawUser.role] ?? "Employee",
+        // Raw role kept for sidebar & access guards
+        rawRole: rawUser.role,
         avatar:
           rawUser.profileImage ||
           "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
@@ -91,7 +90,16 @@ export default function DashboardPage() {
   const activeScreen = useAssetStore((state) => state.activeScreen);
   const setActiveScreen = useAssetStore((state) => state.setActiveScreen);
 
-  // ── Server State (Fetched & Cached via TanStack Query) ──────────────────
+  // Guard: if the current screen is not accessible by this role, reset to
+  // the first screen the role CAN access (runs whenever role or screen changes).
+  useEffect(() => {
+    if (!rawRole) return;
+    if (!hasAccess(rawRole, activeScreen)) {
+      setActiveScreen(getDefaultScreen(rawRole));
+    }
+  }, [rawRole, activeScreen, setActiveScreen]);
+
+  // ── Server State ─────────────────────────────────────────────────────────
   const { data: departments = [], isLoading: isLoadingDept } = useDepartments();
   const { data: users = [], isLoading: isLoadingUsers } = useUsers();
   const { data: categories = [], isLoading: isLoadingCategories } = useCategories();
@@ -105,7 +113,7 @@ export default function DashboardPage() {
   const { data: notifications = [] } = useNotifications();
   const { data: logs = [] } = useLogs();
 
-  // ── Server Actions (Mutations) ───────────────────────────────────────────
+  // ── Mutations ─────────────────────────────────────────────────────────────
   const addDeptMutation = useAddDepartmentMutation();
   const addEmpMutation = useAddEmployeeMutation();
   const deleteEmpMutation = useDeleteEmployeeMutation();
@@ -123,16 +131,16 @@ export default function DashboardPage() {
   const markNotificationReadMutation = useMarkNotificationReadMutation();
   const clearNotificationsMutation = useClearNotificationsMutation();
 
-  const handleAddDepartment = (newDept) => addDeptMutation.mutate(newDept);
-  const handleAddEmployee = (newEmp) => addEmpMutation.mutate(newEmp);
-  const handleDeleteEmployee = (empId) => deleteEmpMutation.mutate(empId);
-  const handleAddAsset = (newAsset) => addAssetMutation.mutate(newAsset);
-  const handleRequestTransfer = (newTrans) => requestTransferMutation.mutate(newTrans);
-  const handleApproveTransfer = (transId) => approveTransferMutation.mutate(transId);
-  const handleRejectTransfer = (transId) => rejectTransferMutation.mutate(transId);
-  const handleAddBooking = (newBook) => addBookingMutation.mutate(newBook);
-  const handleCancelBooking = (bookId) => cancelBookingMutation.mutate(bookId);
-  const handleAddMaintenanceTask = (newTask) => addMaintenanceTaskMutation.mutate(newTask);
+  const handleAddDepartment = (d) => addDeptMutation.mutate(d);
+  const handleAddEmployee = (e) => addEmpMutation.mutate(e);
+  const handleDeleteEmployee = (id) => deleteEmpMutation.mutate(id);
+  const handleAddAsset = (a) => addAssetMutation.mutate(a);
+  const handleRequestTransfer = (t) => requestTransferMutation.mutate(t);
+  const handleApproveTransfer = (id) => approveTransferMutation.mutate(id);
+  const handleRejectTransfer = (id) => rejectTransferMutation.mutate(id);
+  const handleAddBooking = (b) => addBookingMutation.mutate(b);
+  const handleCancelBooking = (id) => cancelBookingMutation.mutate(id);
+  const handleAddMaintenanceTask = (t) => addMaintenanceTaskMutation.mutate(t);
   const handleUpdateMaintenanceStatus = (taskId, status, technician) =>
     updateMaintenanceStatusMutation.mutate({ taskId, status, technician });
   const handleAddComment = (taskId, comment) =>
@@ -141,16 +149,15 @@ export default function DashboardPage() {
     verifyChecklistItemMutation.mutate({ auditId, itemId, checkedBy });
   const handleResolveDiscrepancy = (auditId, discId) =>
     resolveDiscrepancyMutation.mutate({ auditId, discId });
-  const handleMarkNotificationRead = (notifId) =>
-    markNotificationReadMutation.mutate(notifId);
+  const handleMarkNotificationRead = (id) =>
+    markNotificationReadMutation.mutate(id);
   const handleClearNotifications = () => clearNotificationsMutation.mutate();
-
   const handleQuickAction = (screenId) => setActiveScreen(screenId);
 
   const isQueryLoading =
     isLoadingDept || isLoadingUsers || isLoadingCategories || isLoadingAssets;
 
-  // ── Data Projection / Mapping Layer ─────────────────────────────────────
+  // ── Data Projection / Mapping ─────────────────────────────────────────────
 
   const employeesMapped = users.map((u) => {
     const dept = departments.find((d) => d.id === u.departmentId);
@@ -159,14 +166,8 @@ export default function DashboardPage() {
       name: u.fullName,
       email: u.email,
       department: dept ? dept.name : "N/A",
-      role:
-        u.role === UserRole.ADMIN
-          ? "System Admin"
-          : u.role === UserRole.DEPARTMENT_HEAD
-            ? "Department Manager"
-            : u.role === UserRole.ASSET_MANAGER
-              ? "Technician"
-              : "Employee",
+      role: ROLE_LABELS[u.role] ?? "Employee",
+      rawRole: u.role,
       avatar: u.profileImage,
       phone: u.phone,
       employeeId: u.employeeId,
@@ -176,7 +177,6 @@ export default function DashboardPage() {
 
   const departmentsMapped = departments.map((d) => {
     const headUser = users.find((u) => u.id === d.headId);
-    const managerName = headUser ? headUser.fullName : "N/A";
     const deptUsers = users.filter(
       (u) => u.departmentId === d.id && u.status === "ACTIVE",
     );
@@ -185,13 +185,12 @@ export default function DashboardPage() {
       (sum, a) => sum + Number(a.acquisitionCost || 0),
       0,
     );
-
     return {
       id: d.id,
       name: d.name,
       code: d.code,
       description: d.description,
-      manager: managerName,
+      manager: headUser ? headUser.fullName : "N/A",
       headcount: deptUsers.length,
       totalAssetsValue: totalVal,
       status: d.status,
@@ -201,14 +200,12 @@ export default function DashboardPage() {
   const assetsMapped = assets.map((a) => {
     const cat = categories.find((c) => c.id === a.categoryId);
     const dept = departments.find((d) => d.id === a.ownerDepartmentId);
-
     const activeAlloc = allocations.find(
       (al) => al.assetId === a.id && al.returnedAt === null,
     );
     const assignedUser = activeAlloc
       ? users.find((u) => u.id === activeAlloc.userId)
       : null;
-    const assignedName = assignedUser ? assignedUser.fullName : undefined;
 
     let uiStatus = "Active";
     if (a.status === AssetStatus.ALLOCATED) uiStatus = "Allocated";
@@ -229,7 +226,7 @@ export default function DashboardPage() {
       status: uiStatus,
       department: dept ? dept.name : "Engineering & DevOps",
       location: a.locationCode || "HQ - Office",
-      assignedTo: assignedName,
+      assignedTo: assignedUser ? assignedUser.fullName : undefined,
       image:
         a.imageUrl ||
         "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300",
@@ -243,20 +240,16 @@ export default function DashboardPage() {
     const fromUser = users.find((u) => u.id === t.fromUserId);
     const toUser = users.find((u) => u.id === t.toUserId);
     const requestedUser = users.find((u) => u.id === t.requestedById);
-
-    const fromDept = fromUser
-      ? departments.find((d) => d.id === fromUser.departmentId)?.name
-      : "N/A";
-    const toDept = toUser
-      ? departments.find((d) => d.id === toUser.departmentId)?.name
-      : "N/A";
-
     return {
       id: t.id,
       assetId: t.assetId,
       assetName: asset ? asset.name : "Unknown Device",
-      fromDept: fromDept || "N/A",
-      toDept: toDept || "N/A",
+      fromDept: fromUser
+        ? departments.find((d) => d.id === fromUser.departmentId)?.name ?? "N/A"
+        : "N/A",
+      toDept: toUser
+        ? departments.find((d) => d.id === toUser.departmentId)?.name ?? "N/A"
+        : "N/A",
       requestedBy: requestedUser ? requestedUser.fullName : "System",
       requestedDate: t.requestDate
         ? t.requestDate.substring(0, 10)
@@ -277,19 +270,14 @@ export default function DashboardPage() {
       ? categories.find((c) => c.id === asset.categoryId)?.name
       : "Meeting Room";
     const user = users.find((u) => u.id === b.bookedById);
-
-    const dateStr = b.startTime ? b.startTime.substring(0, 10) : "2026-07-12";
-    const startHours = b.startTime ? b.startTime.substring(11, 16) : "09:00";
-    const endHours = b.endTime ? b.endTime.substring(11, 16) : "10:30";
-
     return {
       id: b.id,
       resourceName: asset ? asset.name : "Meeting Space",
       category: catName || "Resource",
       bookedBy: user ? user.fullName : "System",
-      date: dateStr,
-      startTime: startHours,
-      endTime: endHours,
+      date: b.startTime ? b.startTime.substring(0, 10) : "2026-07-12",
+      startTime: b.startTime ? b.startTime.substring(11, 16) : "09:00",
+      endTime: b.endTime ? b.endTime.substring(11, 16) : "10:30",
       purpose: b.purpose,
       status: b.status === BookingStatus.CANCELLED ? "Cancelled" : "Confirmed",
     };
@@ -299,14 +287,12 @@ export default function DashboardPage() {
     const asset = assets.find((a) => a.id === m.assetId);
     const reportedUser = users.find((u) => u.id === m.reportedById);
     const assignedUser = users.find((u) => u.id === m.assignedToId);
-
     let uiStatus = "Pending";
     if (m.status === MaintenanceStatus.APPROVED) uiStatus = "Approved";
     else if (m.status === MaintenanceStatus.ASSIGNED) uiStatus = "Technician Assigned";
     else if (m.status === MaintenanceStatus.IN_PROGRESS) uiStatus = "In Progress";
     else if (m.status === MaintenanceStatus.RESOLVED) uiStatus = "Completed";
     else if (m.status === MaintenanceStatus.REJECTED) uiStatus = "Rejected";
-
     return {
       id: m.id,
       assetId: m.assetId,
@@ -330,7 +316,6 @@ export default function DashboardPage() {
 
   const auditsMapped = audits.map((aud) => {
     const items = auditItems.filter((item) => item.auditCycleId === aud.id);
-
     const checklist = items.map((item) => {
       const asset = assets.find((a) => a.id === item.assetId);
       const verifier = item.verifiedById
@@ -344,31 +329,27 @@ export default function DashboardPage() {
         checkedBy: verifier ? verifier.fullName : undefined,
       };
     });
-
-    const discItems = items.filter(
-      (item) =>
-        item.status === AuditItemStatus.MISSING ||
-        item.status === AuditItemStatus.DAMAGED,
-    );
-    const discrepancies = discItems.map((item) => {
-      const asset = assets.find((a) => a.id === item.assetId);
-      let issue = "Unverified or missing scan telemetry";
-      if (item.status === AuditItemStatus.DAMAGED) {
-        issue = item.remarks || "Hardware reported damaged during audit cycle scan.";
-      } else if (item.status === AuditItemStatus.MISSING) {
-        issue = "Missing from mapped location code - zero radio response.";
-      }
-
-      return {
-        id: `dc_${item.id}`,
-        assetId: item.assetId,
-        assetName: asset ? asset.name : "Unknown Device",
-        issue: issue,
-        severity: item.status === AuditItemStatus.MISSING ? "High" : "Medium",
-        status: item.status === AuditItemStatus.VERIFIED ? "Resolved" : "Pending",
-      };
-    });
-
+    const discrepancies = items
+      .filter(
+        (item) =>
+          item.status === AuditItemStatus.MISSING ||
+          item.status === AuditItemStatus.DAMAGED,
+      )
+      .map((item) => {
+        const asset = assets.find((a) => a.id === item.assetId);
+        return {
+          id: `dc_${item.id}`,
+          assetId: item.assetId,
+          assetName: asset ? asset.name : "Unknown Device",
+          issue:
+            item.status === AuditItemStatus.DAMAGED
+              ? item.remarks || "Hardware reported damaged during audit."
+              : "Missing from mapped location — zero radio response.",
+          severity: item.status === AuditItemStatus.MISSING ? "High" : "Medium",
+          status:
+            item.status === AuditItemStatus.VERIFIED ? "Resolved" : "Pending",
+        };
+      });
     return {
       id: aud.id,
       title: aud.title,
@@ -382,50 +363,54 @@ export default function DashboardPage() {
 
   const logsMapped = logs.map((l) => {
     const user = users.find((u) => u.id === l.userId);
-    const userName = user ? user.fullName : "System";
-
     let categoryName = "System";
     if (l.entityType === EntityType.ASSET) categoryName = "Asset";
     else if (l.entityType === EntityType.TRANSFER) categoryName = "Transfer";
     else if (l.entityType === EntityType.MAINTENANCE) categoryName = "Maintenance";
     else if (l.entityType === EntityType.BOOKING) categoryName = "Booking";
-
     return {
       id: l.id,
       timestamp: l.createdAt
         ? l.createdAt.replace("T", " ").substring(0, 19)
         : "2026-07-12 09:12:44",
       action: l.action,
-      user: userName,
+      user: user ? user.fullName : "System",
       details: l.description,
       category: categoryName,
     };
   });
 
-  const notificationsMapped = notifications.map((n) => {
-    return {
-      id: n.id,
-      timestamp: n.createdAt
-        ? n.createdAt.replace("T", " ").substring(0, 16)
-        : "2026-07-12 09:15",
-      title: n.title,
-      message: n.message,
-      read: n.isRead,
-      type:
-        n.type === NotificationType.TRANSFER_REJECTED ||
-        n.title.toLowerCase().includes("reject") ||
-        n.title.toLowerCase().includes("fail") ||
-        n.title.toLowerCase().includes("cancel") ||
-        n.title.toLowerCase().includes("warning")
-          ? "warning"
-          : "info",
-    };
-  });
+  const notificationsMapped = notifications.map((n) => ({
+    id: n.id,
+    timestamp: n.createdAt
+      ? n.createdAt.replace("T", " ").substring(0, 16)
+      : "2026-07-12 09:15",
+    title: n.title,
+    message: n.message,
+    read: n.isRead,
+    type:
+      n.type === NotificationType.TRANSFER_REJECTED ||
+      n.title.toLowerCase().includes("reject") ||
+      n.title.toLowerCase().includes("fail") ||
+      n.title.toLowerCase().includes("cancel") ||
+      n.title.toLowerCase().includes("warning")
+        ? "warning"
+        : "info",
+  }));
 
-  // ── Screen Router ────────────────────────────────────────────────────────
+  // ── RBAC Screen Router ────────────────────────────────────────────────────
+  // Each case checks hasAccess() before rendering — unauthorized = AccessDenied.
   const renderActiveScreen = () => {
+    const denied = (label) => (
+      <AccessDenied
+        screenLabel={label}
+        onGoHome={() => setActiveScreen("dashboard")}
+      />
+    );
+
     switch (activeScreen) {
       case "dashboard":
+        // All roles — no guard needed
         return (
           <DashboardView
             currentUser={currentUser}
@@ -438,7 +423,11 @@ export default function DashboardPage() {
             onRejectTransfer={handleRejectTransfer}
           />
         );
+
       case "organization":
+        // Admin only
+        if (!hasAccess(rawRole, "organization"))
+          return denied("Organization Setup");
         return (
           <OrganizationView
             currentUser={currentUser}
@@ -449,7 +438,9 @@ export default function DashboardPage() {
             onDeleteEmployee={handleDeleteEmployee}
           />
         );
+
       case "directory":
+        // All roles (view is internally filtered by role if needed)
         return (
           <AssetDirectoryView
             currentUser={currentUser}
@@ -459,7 +450,9 @@ export default function DashboardPage() {
             onAddAsset={handleAddAsset}
           />
         );
+
       case "allocation":
+        // All roles
         return (
           <AllocationTransfersView
             currentUser={currentUser}
@@ -471,7 +464,9 @@ export default function DashboardPage() {
             onRejectTransfer={handleRejectTransfer}
           />
         );
+
       case "booking":
+        // All roles
         return (
           <ResourceBookingView
             currentUser={currentUser}
@@ -480,7 +475,9 @@ export default function DashboardPage() {
             onCancelBooking={handleCancelBooking}
           />
         );
+
       case "maintenance":
+        // All roles
         return (
           <MaintenanceKanbanView
             currentUser={currentUser}
@@ -492,7 +489,10 @@ export default function DashboardPage() {
             onAddComment={handleAddComment}
           />
         );
+
       case "audit":
+        // Admin + Asset Manager only
+        if (!hasAccess(rawRole, "audit")) return denied("Asset Audit");
         return (
           <AssetAuditView
             currentUser={currentUser}
@@ -501,14 +501,20 @@ export default function DashboardPage() {
             onResolveDiscrepancy={handleResolveDiscrepancy}
           />
         );
+
       case "analytics":
+        // Admin + Asset Manager + Department Head
+        if (!hasAccess(rawRole, "analytics"))
+          return denied("Reports & Analytics");
         return (
           <AnalyticsView
             assets={assetsMapped}
             departments={departmentsMapped}
           />
         );
+
       case "logs":
+        // All roles
         return (
           <LogsNotificationsView
             logs={logsMapped}
@@ -517,12 +523,13 @@ export default function DashboardPage() {
             onClearNotifications={handleClearNotifications}
           />
         );
+
       default:
         return (
           <div className="text-center py-10">
-            <h2 className="text-xl font-bold text-white">404 Error</h2>
+            <h2 className="text-xl font-bold text-white">404</h2>
             <p className="text-slate-400 mt-2">
-              Specified asset screen code &quot;{activeScreen}&quot; not recognized.
+              Screen &quot;{activeScreen}&quot; not found.
             </p>
           </div>
         );
@@ -549,8 +556,8 @@ export default function DashboardPage() {
         {isQueryLoading ? (
           <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-4">
             <div className="relative flex items-center justify-center">
-              <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
-              <div className="absolute w-6 h-6 border-4 border-emerald-500/10 border-b-emerald-500 rounded-full animate-spin"></div>
+              <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+              <div className="absolute w-6 h-6 border-4 border-emerald-500/10 border-b-emerald-500 rounded-full animate-spin" />
             </div>
             <div className="text-center space-y-1">
               <p className="text-slate-300 font-medium text-sm tracking-wide">
