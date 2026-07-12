@@ -1,6 +1,7 @@
 import prisma from "../../config/prisma.js";
 import { comparePassword } from "../../lib/password.js";
 import { generateToken } from "../../lib/jwt.js";
+import AppError from "../../utils/appError.js";
 
 export async function loginUser(email, password) {
   const user = await prisma.user.findUnique({
@@ -13,13 +14,13 @@ export async function loginUser(email, password) {
   });
 
   if (!user) {
-    throw new Error("Invalid email or password");
+    throw new AppError("Invalid email or password", 401);
   }
 
   const isPasswordValid = await comparePassword(password, user.password);
 
   if (!isPasswordValid) {
-    throw new Error("Invalid email or password");
+    throw new AppError("Invalid email or password", 401);
   }
 
   const token = generateToken(user);

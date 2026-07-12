@@ -1,0 +1,49 @@
+### Departments List
+GET http://localhost:5000/api/departments?page=1&limit=10
+
+### Department Details
+GET http://localhost:5000/api/departments/{{departmentId}}
+
+### Create Department
+POST http://localhost:5000/api/departments
+Content-Type: application/json
+
+{
+  "name": "Operations",
+  "code": "OPS",
+  "description": "Operations department"
+}
+
+### Users List
+GET http://localhost:5000/api/users?page=1&limit=10&search=Rahul
+
+### Create User
+POST http://localhost:5000/api/users
+Content-Type: application/json
+
+{
+  "employeeId": "EMP100",
+  "fullName": "Test Employee",
+  "email": "test.employee@assetflow.com",
+  "password": "password123",
+  "role": "EMPLOYEE",
+  "departmentId": "{{departmentId}}"
+}
+
+### Assets List
+GET http://localhost:5000/api/assets?page=1&limit=10&search=LAP
+
+### Create Asset
+POST http://localhost:5000/api/assets
+Content-Type: application/json
+
+{
+  "assetTag": "LAP-999",
+  "name": "Demo Laptop",
+  "categoryId": "{{categoryId}}",
+  "ownerDepartmentId": "{{departmentId}}",
+  "locationCode": "IT-01",
+  "status": "AVAILABLE",
+  "condition": "NEW",
+  "isBookable": false
+}

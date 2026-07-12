@@ -1,5 +1,5 @@
 ### Login
-POST http://localhost:8000/api/auth/login
+POST http://localhost:5000/api/auth/login
 Content-Type: application/json
 
 {
@@ -16,3 +16,12 @@ GET http://localhost:5000/api/auth/me
 
 ### Logout
 POST http://localhost:5000/api/auth/logout
+
+### Departments
+GET http://localhost:5000/api/departments?page=1&limit=10&search=IT
+
+### Assets
+GET http://localhost:5000/api/assets?page=1&limit=10&search=LAP&status=AVAILABLE
+
+### Users
+GET http://localhost:5000/api/users?page=1&limit=10&role=EMPLOYEE
